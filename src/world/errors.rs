@@ -1,0 +1,5 @@
+#[derive(Debug)]
+pub enum OctreeError {
+    OutOfBounds,
+    InvalidSize,
+}
