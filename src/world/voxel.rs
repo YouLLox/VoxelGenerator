@@ -7,10 +7,10 @@ pub enum BlockType {
 
 impl BlockType {
     pub fn is_empty(self) -> bool {
-        matches!(self, BlockType::Air);
+        matches!(self, BlockType::Air)
     }
 
     pub fn is_solid(self) -> bool {
-        !matches!(self, BlockType::Air);
+        !matches!(self, BlockType::Air)
     }
 }
