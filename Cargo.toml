@@ -2,5 +2,8 @@
 name = "ManageData"
 version = "0.1.0"
 edition = "2024"
+serde_json = "1"
 
 [dependencies]
+bevy = "0.18.1"
+serde_json = "1.0.149"

@@ -1,4 +1,7 @@
 use crate::world::{BlockType, IVec3, OctreeError};
+use serde_json::json;
+use std::fs::File;
+use std::io::Write;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Node {
@@ -122,6 +125,13 @@ impl Octree {
         }
     }
 
+    fn move_rec(node: &mut Node, origin: IVec3, size: u32, pos: IVec3, new_pos: IVec3) -> bool {
+        let block = Self::get_rec(node, origin, size, pos);
+        Self::set_rec(node, origin, size, pos, BlockType::Air);
+        Self::set_rec(node, origin, size, new_pos, block);
+        true
+    }
+
     fn set_rec(node: &mut Node, origin: IVec3, size: u32, pos: IVec3, block: BlockType) {
         if size == 1 {
             *node = Node::Leaf(block);
@@ -173,10 +183,29 @@ impl Octree {
             }
         }
     }
+
+    fn browse_rec(node: &Node) -> serde_json::Value {
+        json!({
+            "type": match node {
+                Node::Leaf(e) => format!("{:?}", e),
+                Node::Children(_) => "null".to_string(),
+            },
+            "children": match node {
+                Node::Leaf(_) => None::<Vec<serde_json::Value>>,
+                Node::Children(children) => Some(children.iter().map(|child| Self::browse_rec(child)).collect::<Vec<serde_json::Value>>()),
+            }
+        })
+    }
+
+    fn save_rec(node: &Node, file: &mut File) -> std::io::Result<()> {
+        let data = Self::browse_rec(node).to_string();
+        file.write_all(data.as_bytes())
+}
 }
 
 // méthodes publiques
 impl Octree {
+
     pub fn new(size: u32, fill: BlockType) -> Result<Self, OctreeError> {
         if !Self::is_power_of_two(size) {
             return Err(OctreeError::InvalidSize);
@@ -213,6 +242,28 @@ impl Octree {
 
     pub fn remove(&mut self, pos: IVec3) -> Result<(), OctreeError> {
         self.set(pos, BlockType::Air)
+    }
+
+    pub fn move_block(&mut self, pos: IVec3, new_pos: IVec3) -> Result<(), OctreeError> {
+        let root_origin = IVec3 { x: 0, y: 0, z: 0 };
+
+        if !self.contains(pos) || !self.contains(new_pos) {
+            return Err(OctreeError::OutOfBounds);
+        }
+
+        Self::move_rec(&mut self.root, root_origin, self.size, pos, new_pos);
+
+        Ok(())
+    }
+
+    pub fn save(&self) -> Result<(), OctreeError> {
+        let mut file = File::create("octree.json").map_err(|_| OctreeError::SaveFailed)?;
+        Self::save_rec(&self.root, &mut file).map_err(|_| OctreeError::SaveFailed)?;
+        Ok(())
+    }
+
+    pub fn load_file(file: &mut File) {
+        
     }
 
     pub fn clear(&mut self, fill: BlockType) {
