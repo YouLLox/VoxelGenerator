@@ -2,5 +2,6 @@
 pub enum OctreeError {
     OutOfBounds,
     InvalidSize,
-    SaveFailed
+    SaveFailed,
+    LoadFailed
 }

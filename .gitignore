@@ -5,3 +5,5 @@ Cargo.lock
 .idea/
 *~
 *.DotSettings.user
+*.json
+main.rs

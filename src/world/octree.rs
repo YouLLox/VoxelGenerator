@@ -1,7 +1,7 @@
 use crate::world::{BlockType, IVec3, OctreeError};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Node {
@@ -23,12 +23,7 @@ impl Octree {
     fn contains(&self, pos: IVec3) -> bool {
         let size = self.size as i32;
 
-        pos.x >= 0
-            && pos.y >= 0
-            && pos.z >= 0
-            && pos.x < size
-            && pos.y < size
-            && pos.z < size
+        pos.x >= 0 && pos.y >= 0 && pos.z >= 0 && pos.x < size && pos.y < size && pos.z < size
     }
 
     fn child_index(origin: IVec3, half: u32, pos: IVec3) -> usize {
@@ -200,18 +195,49 @@ impl Octree {
     fn save_rec(node: &Node, file: &mut File) -> std::io::Result<()> {
         let data = Self::browse_rec(node).to_string();
         file.write_all(data.as_bytes())
-}
+    }
+
+    fn from_json_rec(v: &Value) -> Option<Node> {
+        let node_type = v.get("type")?.as_str()?;
+
+        if node_type != "null" {
+            let block = match node_type {
+                "Stone" => BlockType::Stone,
+                "Dirt" => BlockType::Dirt,
+                _ => BlockType::Air,
+            };
+            return Some(Node::Leaf(block));
+        }
+
+        let children_json = v.get("children")?.as_array()?;
+        if children_json.len() != 8 {
+            return None;
+        }
+
+        let mut children_vec = Vec::with_capacity(8);
+        for child_v in children_json {
+            children_vec.push(Self::from_json_rec(child_v)?);
+        }
+
+        let children_array: Box<[Node; 8]> = children_vec
+            .try_into()
+            .ok()
+            .map(Box::new)?;
+        return Some (Node::Children(children_array));
+    }
 }
 
 // méthodes publiques
 impl Octree {
-
     pub fn new(size: u32, fill: BlockType) -> Result<Self, OctreeError> {
         if !Self::is_power_of_two(size) {
             return Err(OctreeError::InvalidSize);
         }
 
-        Ok(Self { size: size, root: Node::Leaf(fill) })
+        Ok(Self {
+            size: size,
+            root: Node::Leaf(fill),
+        })
     }
 
     pub fn size(&self) -> u32 {
@@ -262,15 +288,28 @@ impl Octree {
         Ok(())
     }
 
-    pub fn load_file(file: &mut File) {
-        
+    pub fn load(path: &str, size: u32) -> Result<Self, OctreeError> {
+        let mut file = File::open(path).map_err(|_| OctreeError::LoadFailed)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .map_err(|_| OctreeError::LoadFailed)?;
+
+        let v: Value = serde_json::from_str(&content).map_err(|_| OctreeError::LoadFailed)?;
+        let root = Self::from_json_rec(&v).ok_or(OctreeError::LoadFailed)?;
+
+        Ok(Octree { size, root })
     }
 
     pub fn clear(&mut self, fill: BlockType) {
         self.root = Node::Leaf(fill);
     }
 
-    pub fn fill_region(&mut self, min: IVec3, max: IVec3, block: BlockType,) -> Result<(), OctreeError> {
+    pub fn fill_region(
+        &mut self,
+        min: IVec3,
+        max: IVec3,
+        block: BlockType,
+    ) -> Result<(), OctreeError> {
         if min.x > max.x || min.y > max.y || min.z > max.z {
             return Err(OctreeError::OutOfBounds);
         }
