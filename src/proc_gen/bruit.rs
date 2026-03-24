@@ -50,8 +50,8 @@ pub fn setup_noise_texture( map_seed: MapSeed)
 
     let mut pixels: Vec<u8> = Vec::with_capacity(width * height * 4);
 
-    for y in 0..height {
-        for x in 0..width {
+    for x in 0..height {
+        for y in 0..width {
            
 
             //ici on normalise les valeurs aléatoires obtenues afin 
