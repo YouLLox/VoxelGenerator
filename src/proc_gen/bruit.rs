@@ -4,7 +4,9 @@ use image::{save_buffer, ColorType};
 
 pub struct MapSeed
 {
-        pub value:u32,
+        pub seed:u32,
+        pub width:usize,
+        pub height:usize,
 }
 pub fn generate_noise(map_height: usize , 
     map_width: usize , mut scale: f64,seed:u32)
@@ -40,12 +42,13 @@ pub fn generate_noise(map_height: usize ,
 
 pub fn setup_noise_texture( map_seed: MapSeed) 
 {
-    let width = 256;
-    let height = 256;
+    let width = map_seed.width;
+    let height = map_seed.height;
+    let seed = map_seed.seed;
     let scale = 20.0;
 
 
-    let noise_map = generate_noise(height, width, scale,map_seed.value);
+    let noise_map = generate_noise(height, width, scale,seed);
 
 
     let mut pixels: Vec<u8> = Vec::with_capacity(width * height * 4);
@@ -71,7 +74,8 @@ pub fn setup_noise_texture( map_seed: MapSeed)
     //plus tard ça sera peut être plus pertinent 
     //de se servir du buffer directement
     
-    let filepath = (format!("noiseMap_seed_{}.png",map_seed.value)).to_string();
+    let filepath = (format!("nMap_seed_{}_dim_{}x{}.png",
+        seed,width,height)).to_string();
     match save_buffer(&filepath, &pixels, width as u32, 
         height as u32, ColorType::Rgba8) 
     {

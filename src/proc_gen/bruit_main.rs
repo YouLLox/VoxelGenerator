@@ -21,7 +21,27 @@ pub fn noise_main() {
         1
     });
 
-    println!("Génération en cours avec la seed : {}...", seed);
+    println!("Veuillez entrer une largeur(un nombre entier) :");
+    input = String::new();
+    io::stdin().read_line(&mut input).expect("Erreur lors de la lecture");
+
+    let width: usize = input.trim().parse().unwrap_or_else(|_| {
+        println!("Entrée invalide. Utilisation de la largeur par défaut : 856");
+        856
+    });
     
-    setup_noise_texture(MapSeed{value:seed});
+    println!("Veuillez entrer une largeur(un nombre entier) :");
+    input = String::new();
+    io::stdin().read_line(&mut input).expect("Erreur lors de la lecture");
+
+    let height: usize = input.trim().parse().unwrap_or_else(|_| {
+        println!("Entrée invalide. Utilisation de la largeur par défaut : 856");
+        856
+    });
+
+    println!("Génération de la noise_map en cours avec 
+    la seed : {} 
+    les dimensions : {} et {}... ", seed,width,height);
+    
+    setup_noise_texture(MapSeed{seed,width,height});
 }
