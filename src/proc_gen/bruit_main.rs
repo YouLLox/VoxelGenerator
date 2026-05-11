@@ -42,6 +42,24 @@ pub fn noise_main() {
     println!("Génération de la noise_map en cours avec 
     la seed : {} 
     les dimensions : {} et {}... ", seed,width,height);
-    
-    setup_noise_texture(MapSeed{seed,width,height});
+    let scale = 27.6;
+    let octaves = 4;
+    let persistance = 0.5;
+    let lacunarity = 2.0;
+
+/* 
+    // sécurités quand les valeurs ne seront plus hardcodée
+    if octaves<0
+    {
+        let octaves=0
+    }
+
+    persistance.clamp(0.0,1.0);
+    if lacunarity<1 
+    {
+        let lacunarity=1
+    }
+*/
+    setup_noise_texture(MapSeed{seed,width,height,scale,
+        octaves,persistance,lacunarity});
 }
