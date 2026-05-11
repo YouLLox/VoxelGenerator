@@ -6,7 +6,7 @@ pub use noise::{NoiseFn, Perlin, Seedable};
 
 use super::bruit::setup_noise_texture;
 use super::bruit::MapSeed;
-
+use crate::proc_gen::bruit::generate_height_map;
 
 pub fn noise_main() {
 
@@ -60,6 +60,19 @@ pub fn noise_main() {
         let lacunarity=1
     }
 */
-    setup_noise_texture(MapSeed{seed,width,height,scale,
-        octaves,persistance,lacunarity});
+
+    let map_seed=MapSeed{
+        seed,
+        width,
+        height,
+        scale,
+        octaves,
+        persistance,
+        lacunarity,
+    };
+    setup_noise_texture(&map_seed);
+/*
+   let height_map=generate_height_map(&map_seed,128);
+    dbg!(height_map);
+*/
 }

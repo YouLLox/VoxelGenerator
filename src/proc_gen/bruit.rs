@@ -91,7 +91,7 @@ pub fn generate_noise(map_height: usize ,
     return noise_map;
 }
 
-pub fn setup_noise_texture( map_seed: MapSeed) 
+pub fn setup_noise_texture( map_seed: &MapSeed) 
 {
     let width = map_seed.width;
     let height = map_seed.height;
@@ -145,4 +145,38 @@ pub fn setup_noise_texture( map_seed: MapSeed)
     }
 
    
+}
+
+
+pub fn generate_height_map(map_seed: &MapSeed, max_height:usize)
+    ->Vec<Vec<u32>>
+{
+    let width = map_seed.width;
+    let depth = map_seed.height;
+
+    let noise_map = generate_noise(
+        depth, 
+        width, 
+        map_seed.scale,
+        map_seed.seed,
+        map_seed.octaves,
+        map_seed.persistance,
+        map_seed.lacunarity
+    );
+
+    let mut height_map = vec![vec![0; width]; depth];
+
+    for z in 0..depth {
+        for x in 0..width {
+            let normalized = (noise_map[z][x] + 1.0) / 2.0;
+            
+            let clamped = normalized.clamp(0.0, 1.0);
+
+            let voxel_height = (clamped * (max_height as f64)) as u32;
+
+            height_map[z][x] = voxel_height;
+        }
+    }
+
+    height_map
 }
