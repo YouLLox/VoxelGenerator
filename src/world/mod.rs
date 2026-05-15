@@ -4,6 +4,7 @@ pub mod errors;
 pub mod octree;
 pub mod chunk;
 pub mod world_access;
+pub mod raycast;
 
 pub use voxel::{BlockFace, BlockType};
 pub use position::IVec3;
@@ -11,3 +12,4 @@ pub use errors::OctreeError;
 pub use octree::Octree;
 pub use chunk::{Chunk, CHUNK_SIZE};
 pub use world_access::SingleChunkWorld;
+pub use raycast::{raycast_world, RaycastResult};

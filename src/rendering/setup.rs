@@ -296,34 +296,22 @@ fn interact_with_blocks(mouse: Res<ButtonInput<MouseButton>>, mut world: ResMut<
         for camera_transform in &camera_query {
             let origin = camera_transform.translation();
             let forward = camera_transform.forward();
-            let max_distance = 10.0;
-            let step = 0.1;
+            let is_solid = |p: IVec3| -> bool {
+                if p.x < 0 || p.x >= CHUNK_SIZE as i32 || p.y < 0 || p.y >= CHUNK_SIZE as i32 || p.z < 0 || p.z >= CHUNK_SIZE as i32 {
+                    return false;
+                }
+                world.chunk.get_local(p).map(|b| b.is_solid()).unwrap_or(false)
+            };
 
-            for i in 1..=(max_distance as f32 / step) as usize {
-                let current_pos = origin + forward * (i as f32 * step);
-                let voxel_pos = IVec3 {
-                    x: current_pos.x.floor() as i32,
-                    y: current_pos.y.floor() as i32,
-                    z: current_pos.z.floor() as i32,
-                };
-
-                if voxel_pos.x >= 0 && voxel_pos.x < CHUNK_SIZE as i32 &&
-                   voxel_pos.y >= 0 && voxel_pos.y < CHUNK_SIZE as i32 &&
-                   voxel_pos.z >= 0 && voxel_pos.z < CHUNK_SIZE as i32 
-                {
-                    if let Ok(block) = world.chunk.get_local(voxel_pos) {
-                        if block.is_solid() {
-                            world.chunk.set_local(voxel_pos, BlockType::Air).unwrap();
-                            modifications.0.insert((voxel_pos.x, voxel_pos.y, voxel_pos.z), BlockType::Air);
-                            
-                            for mesh3d in &chunk_query {
-                                let new_mesh = crate::rendering::chunk_mesher::mesh_from_chunk(&world.chunk).unwrap();
-                                if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
-                                    *mesh = new_mesh;
-                                }
-                            }
-                            break;
-                        }
+            if let Some(result) = crate::world::raycast_world(origin, forward.into(), 10.0, &is_solid) {
+                let voxel_pos = result.position;
+                world.chunk.set_local(voxel_pos, BlockType::Air).unwrap();
+                modifications.0.insert((voxel_pos.x, voxel_pos.y, voxel_pos.z), BlockType::Air);
+                
+                for mesh3d in &chunk_query {
+                    let new_mesh = crate::rendering::chunk_mesher::mesh_from_chunk(&world.chunk).unwrap();
+                    if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
+                        *mesh = new_mesh;
                     }
                 }
             }
