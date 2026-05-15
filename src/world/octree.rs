@@ -226,6 +226,14 @@ impl Octree {
             .map(Box::new)?;
         return Some (Node::Children(children_array));
     }
+    pub fn to_json(&self) -> serde_json::Value {
+        Self::browse_rec(&self.root)
+    }
+
+    pub fn from_json(v: &Value, size: u32) -> Option<Self> {
+        let root = Self::from_json_rec(v)?;
+        Some(Self { size, root })
+    }
 }
 
 // méthodes publiques

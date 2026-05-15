@@ -4,12 +4,14 @@ mod world;
 mod rendering;
 mod proc_gen;
 mod player;
+mod ui;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins(player::PlayerPlugin)
         .add_plugins(rendering::setup::SetupPlugin)
+        .add_plugins(ui::UiPlugin)
         .run();
 }
 
