@@ -3,11 +3,12 @@ use bevy::prelude::*;
 mod world;
 mod rendering;
 mod proc_gen;
+mod player;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(rendering::camera::CameraPlugin)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(player::PlayerPlugin)
         .add_plugins(rendering::setup::SetupPlugin)
         .run();
 }
@@ -23,7 +24,6 @@ mod tests {
 
     #[test]
     #[ignore = "manual"]
-    //cargo test save_json -- --ignored
     fn save_json() {
         let _guard = DEMO_TEST_LOCK.lock().unwrap();
 
@@ -40,7 +40,6 @@ mod tests {
 
     #[test]
     #[ignore = "manual"]
-    //cargo test load_json -- --ignored
     fn load_json() {
         let _guard = DEMO_TEST_LOCK.lock().unwrap();
         assert!(Path::new(DEMO_JSON_PATH).exists());
@@ -54,4 +53,3 @@ mod tests {
         assert_eq!(loaded.get(IVec3::new(0, 0, 0)).unwrap(), BlockType::Air);
     }
 }
-

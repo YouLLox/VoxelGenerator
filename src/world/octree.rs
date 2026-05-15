@@ -204,6 +204,7 @@ impl Octree {
             let block = match node_type {
                 "Stone" => BlockType::Stone,
                 "Dirt" => BlockType::Dirt,
+                "Grass" => BlockType::Grass,
                 _ => BlockType::Air,
             };
             return Some(Node::Leaf(block));
