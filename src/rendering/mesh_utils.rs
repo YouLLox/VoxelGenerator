@@ -86,7 +86,7 @@ pub fn create_triangle_mesh() -> Mesh
 // CHUNK BATCHING
 // --------------------------------------------------------------------------------
 
-fn atlas_uv_rect(col: u32, row: u32, atlas_cols: u32, atlas_rows: u32) -> [[f32; 2]; 4]
+pub fn atlas_uv_rect(col: u32, row: u32, atlas_cols: u32, atlas_rows: u32) -> [[f32; 2]; 4]
 {
     let tile_w = 1.0 / atlas_cols as f32;
     let tile_h = 1.0 / atlas_rows as f32;
@@ -105,7 +105,11 @@ fn atlas_uv_rect(col: u32, row: u32, atlas_cols: u32, atlas_rows: u32) -> [[f32;
     ]
 }
 
-/// Append the 4 vertices and 6 indices of a quad to the lists
+pub fn add_quad_uvs(col: u32, row: u32) -> [[f32; 2]; 4] {
+    atlas_uv_rect(col, row, 3, 2)
+}
+
+/// Ajoute les 4 vertex et 6 indices d'un quad aux listes
 pub fn add_quad(
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
@@ -151,9 +155,9 @@ pub fn add_voxel(
     let bottom_tile = block.atlas_tile(BlockFace::Bottom).unwrap();
     let side_tile = block.atlas_tile(BlockFace::Side).unwrap();
 
-    let top_uvs = atlas_uv_rect(top_tile.0, top_tile.1, 3, 2);
-    let bottom_uvs = atlas_uv_rect(bottom_tile.0, bottom_tile.1, 3, 2);
-    let side_uvs = atlas_uv_rect(side_tile.0, side_tile.1, 3, 2);
+    let top_uvs = add_quad_uvs(top_tile.0, top_tile.1);
+    let bottom_uvs = add_quad_uvs(bottom_tile.0, bottom_tile.1);
+    let side_uvs = add_quad_uvs(side_tile.0, side_tile.1);
 
     // Top (+Y)
     if !is_solid(x, y + 1, z) {
@@ -214,6 +218,7 @@ pub fn build_chunk_mesh(
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     uvs: Vec<[f32; 2]>,
+    colors: Vec<[f32; 4]>,
     indices: Vec<u32>,
 ) -> Mesh
 {
@@ -225,6 +230,7 @@ pub fn build_chunk_mesh(
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh.insert_indices(Indices::U32(indices));
 
     mesh
@@ -235,6 +241,7 @@ pub fn simulate_chunk_mesh() -> Mesh
     let mut positions = Vec::new();
     let mut normals = Vec::new();
     let mut uvs = Vec::new();
+    let colors = Vec::new(); // Placeholder
     let mut indices = Vec::new();
 
     let chunk_size = 16;
@@ -266,5 +273,5 @@ pub fn simulate_chunk_mesh() -> Mesh
         }
     }
 
-    build_chunk_mesh(positions, normals, uvs, indices)
+    build_chunk_mesh(positions, normals, uvs, colors, indices)
 }
