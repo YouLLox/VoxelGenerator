@@ -54,8 +54,6 @@ fn setup_ui(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
-                BorderRadius::all(Val::Px(5.0)),
             )).with_children(|enfant| {
                 enfant.spawn((
                     Text::new("Menu"),

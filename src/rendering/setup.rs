@@ -55,6 +55,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
         octaves: 4,
         persistance: 0.5,
         lacunarity: 2.0,
+        offset:(0,0),
     };
 
     let max_height = 16;
@@ -154,6 +155,7 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
         octaves: 4,
         persistance: 0.5,
         lacunarity: 2.0,
+        offset:(0,0),
     };
 
     let max_height = 16;
@@ -176,7 +178,9 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
     }
     new_chunk
 }
-
+//idée pour générer le reste de la map générer les 8 chunks autour du chunk du 
+//joueur et cacher le reste une fois générée juste le cacher 
+//pour génerer utiliser fonc générer chunk
 fn trigger_random_seed(keys: Res<ButtonInput<KeyCode>>, mut ev_writer: MessageWriter<GenerateSeedEvent>) {
     if keys.just_pressed(KeyCode::KeyR) {
         let new_seed = std::time::SystemTime::now()
