@@ -137,6 +137,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
             PlayerController::default(),
             PlayerLook::default(),
             Transform::from_xyz(16.0, 32.0, 16.0),
+            Visibility::default(),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -200,6 +201,7 @@ pub fn update_visible_chunks(
     mut chunk_manager: ResMut<ChunkManager>,
     player_query: Query<&Transform, With<Player>>,
     current_seed: Res<CurrentSeed>,
+    modifications: Res<MapModifications>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
@@ -209,7 +211,8 @@ pub fn update_visible_chunks(
 
     let current_chunk_x = (player_pos.x / CHUNK_SIZE as f32).floor() as i32;
     let current_chunk_z = (player_pos.z / CHUNK_SIZE as f32).floor() as i32;
-    let current_chunk_pos = IVec3 { x: current_chunk_x, y: 0, z: current_chunk_z };
+    let current_chunk_pos = IVec3 { x: current_chunk_x, 
+        y: 0, z: current_chunk_z };
 
     let view_distance = 1; 
     let mut desired_chunks = HashSet::new();
@@ -224,11 +227,12 @@ pub fn update_visible_chunks(
         }
     }
 
-    let loaded_positions: Vec<IVec3> = chunk_manager.loaded_chunks.keys().cloned().collect();
+    let loaded_positions: Vec<IVec3> = chunk_manager.loaded_chunks.keys()
+        .cloned().collect();
     for pos in loaded_positions {
         if !desired_chunks.contains(&pos) {
             if let Some(entity) = chunk_manager.chunk_entities.get(&pos) {
-                commands.entity(*entity).despawn_recursive();
+                commands.entity(*entity).despawn();
             }
             chunk_manager.loaded_chunks.remove(&pos);
             chunk_manager.chunk_entities.remove(&pos);
@@ -245,7 +249,18 @@ pub fn update_visible_chunks(
 
     for pos in desired_chunks {
         if !chunk_manager.loaded_chunks.contains_key(&pos) {
-            let chunk = generate_chunk_from_seed(current_seed.0, pos);
+            let mut chunk = generate_chunk_from_seed(current_seed.0, pos);
+
+            for (&(gx, gy, gz), &block_type) in modifications.0.iter() {
+                let global_pos = IVec3::new(gx, gy, gz);
+                
+                let (mod_chunk_pos, mod_local_pos) =
+                ChunkManager::world_to_chunk_and_local(global_pos);
+                
+                if mod_chunk_pos == pos {
+                    let _ = chunk.set_local(mod_local_pos, block_type);
+                }
+            }
             
             if let Ok(mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(&chunk) {
                 let world_x = (pos.x * CHUNK_SIZE as i32) as f32;
@@ -301,7 +316,7 @@ fn handle_generate_seed_event(
         }
         */ 
         for &entity in chunk_manager.chunk_entities.values() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
 
         chunk_manager.loaded_chunks.clear();
@@ -392,7 +407,7 @@ fn handle_save_load(
                     }
                 */ 
                     for &entity in chunk_manager.chunk_entities.values() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                     
                     chunk_manager.loaded_chunks.clear();

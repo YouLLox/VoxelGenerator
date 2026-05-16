@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use rand::Rng;
 use chacha20::ChaCha8Rng;
 
 pub use noise::{NoiseFn, Perlin, Seedable};
@@ -28,18 +29,26 @@ fn lerp(a:f64,b:f64,x:f64)->f64
 }
 pub fn generate_noise(map_height: usize , 
     map_width: usize , mut scale: f64,seed:u32,octaves:u32,persistance:f64,
-    lacunarity:f64,offset:(u32,u32))
+    lacunarity:f64,offset:(i32,i32))
     ->Vec<Vec<f64>>
 {
     let mut noise_map=vec![vec![0.0;map_width];map_height];
-    let mut octave_offsets=vec![(octaves,octaves);octaves as usize];
+    let mut octave_offsets=vec![(0i64,0i64);octaves as usize];
     
     let mut prng:ChaCha8Rng=ChaCha8Rng::seed_from_u64(seed as u64);
 
     for i in 0..(octaves as usize) 
     {
-        let offsetx= prng.next_u32()+offset.0;
-        let offsety= prng.next_u32()+offset.1;
+        /*
+        let offsetx= (prng.next_u32() as i 64)+offset.0 as i64;
+        let offsety= (prng.next_u32() as i64)+offset.1 as i64;
+        */ 
+        let base_x = (prng.next_u32() % 200_000) as i64 - 100_000;
+        let base_y = (prng.next_u32() % 200_000) as i64 - 100_000;
+
+        let offsetx = base_x + (offset.0 as i64);
+        let offsety = base_y + (offset.1 as i64);
+
         octave_offsets[i]=(offsetx,offsety);
     }           
 
