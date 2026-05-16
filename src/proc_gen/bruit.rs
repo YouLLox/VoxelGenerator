@@ -14,7 +14,7 @@ pub struct MapSeed
         pub octaves:u32,
         pub persistance:f64,
         pub lacunarity:f64,
-        pub offset:(u32,u32),
+        pub offset:(i32,i32),
 }
 
 fn inv_lerp(a:f64,b:f64,x:f64)->f64

@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
 use crate::player::controller::PlayerController;
-use crate::world::{IVec3, SingleChunkWorld};
+use crate::world::{IVec3, ChunkManager};
 
-fn aabb_collides(world: &SingleChunkWorld, pos: Vec3, controller: &PlayerController) -> bool {
+fn aabb_collides(world: &ChunkManager, pos: Vec3, controller: &PlayerController) -> bool {
     let min = Vec3::new(
         pos.x - controller.half_width,
         pos.y,
@@ -41,7 +41,7 @@ fn aabb_collides(world: &SingleChunkWorld, pos: Vec3, controller: &PlayerControl
 }
 
 pub fn move_and_collide(
-    world: &SingleChunkWorld,
+    world: &ChunkManager,
     position: &mut Vec3,
     controller: &mut PlayerController,
     dt: f32,

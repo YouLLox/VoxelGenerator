@@ -1,20 +1,29 @@
 use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashSet;
 
 use super::chunk_mesher;
 use crate::player::{Player, PlayerCamera, PlayerController, PlayerLook};
-use crate::world::{BlockType, Chunk, IVec3, SingleChunkWorld, CHUNK_SIZE};
+use crate::world::{BlockType, Chunk, IVec3, ChunkManager, CHUNK_SIZE};
 
 pub struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapModifications>();
+        app.init_resource::<ChunkManager>();
+
         app.add_message::<GenerateSeedEvent>();
         app.add_message::<SaveMapEvent>();
         app.add_message::<LoadMapEvent>();
         app.add_systems(Startup, setup);
-        app.add_systems(Update, (trigger_random_seed, handle_generate_seed_event, interact_with_blocks, handle_save_load));
+        
+        app.add_systems(Update, (
+            trigger_random_seed, 
+            handle_generate_seed_event, 
+            interact_with_blocks, 
+            handle_save_load,
+            update_visible_chunks));
     }
 }
 
@@ -46,7 +55,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
     */
 
     println!("Génération initiale avec la seed : {}", current_seed);
-
+/*
     let map_seed = crate::proc_gen::bruit::MapSeed {
         seed: current_seed,
         width: CHUNK_SIZE as usize,
@@ -101,8 +110,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
         Transform::from_xyz(world_x, world_y, world_z),
         WorldChunkMarker,
     ));
-
-    commands.insert_resource(SingleChunkWorld { chunk });
+*/
+    //commands.insert_resource(SingleChunkWorld { chunk });
     commands.insert_resource(CurrentSeed(current_seed));
 
     commands.insert_resource(AmbientLight {
@@ -146,6 +155,9 @@ pub struct MapModifications(pub std::collections::HashMap<(i32, i32, i32), Block
 
 fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
     let mut new_chunk = Chunk::new(chunk_pos, BlockType::Air).unwrap();
+
+    let offset_x = chunk_pos.x * CHUNK_SIZE as i32;
+    let offset_y = chunk_pos.y * CHUNK_SIZE as i32;
     
     let map_seed = crate::proc_gen::bruit::MapSeed {
         seed,
@@ -155,7 +167,7 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
         octaves: 4,
         persistance: 0.5,
         lacunarity: 2.0,
-        offset:(0,0),
+        offset:(offset_x,offset_y),
     };
 
     let max_height = 16;
@@ -178,9 +190,81 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
     }
     new_chunk
 }
+
 //idée pour générer le reste de la map générer les 8 chunks autour du chunk du 
 //joueur et cacher le reste une fois générée juste le cacher 
 //pour génerer utiliser fonc générer chunk
+
+pub fn update_visible_chunks(
+    mut commands: Commands,
+    mut chunk_manager: ResMut<ChunkManager>,
+    player_query: Query<&Transform, With<Player>>,
+    current_seed: Res<CurrentSeed>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
+    let Ok(player_transform) = player_query.single() else { return; };
+    let player_pos = player_transform.translation;
+
+    let current_chunk_x = (player_pos.x / CHUNK_SIZE as f32).floor() as i32;
+    let current_chunk_z = (player_pos.z / CHUNK_SIZE as f32).floor() as i32;
+    let current_chunk_pos = IVec3 { x: current_chunk_x, y: 0, z: current_chunk_z };
+
+    let view_distance = 1; 
+    let mut desired_chunks = HashSet::new();
+    
+    for dx in -view_distance..=view_distance {
+        for dz in -view_distance..=view_distance {
+            desired_chunks.insert(IVec3 {
+                x: current_chunk_pos.x + dx,
+                y: 0, 
+                z: current_chunk_pos.z + dz,
+            });
+        }
+    }
+
+    let loaded_positions: Vec<IVec3> = chunk_manager.loaded_chunks.keys().cloned().collect();
+    for pos in loaded_positions {
+        if !desired_chunks.contains(&pos) {
+            if let Some(entity) = chunk_manager.chunk_entities.get(&pos) {
+                commands.entity(*entity).despawn_recursive();
+            }
+            chunk_manager.loaded_chunks.remove(&pos);
+            chunk_manager.chunk_entities.remove(&pos);
+        }
+    }
+
+    let atlas_texture: Handle<Image> = asset_server.load("textures/blocks_atlas_32.png");
+    let material = materials.add(StandardMaterial {
+        base_color_texture: Some(atlas_texture),
+        perceptual_roughness: 1.0,
+        metallic: 0.0,
+        ..default()
+    });
+
+    for pos in desired_chunks {
+        if !chunk_manager.loaded_chunks.contains_key(&pos) {
+            let chunk = generate_chunk_from_seed(current_seed.0, pos);
+            
+            if let Ok(mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(&chunk) {
+                let world_x = (pos.x * CHUNK_SIZE as i32) as f32;
+                let world_y = (pos.y * CHUNK_SIZE as i32) as f32;
+                let world_z = (pos.z * CHUNK_SIZE as i32) as f32;
+
+                let entity = commands.spawn((
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_xyz(world_x, world_y, world_z),
+                    WorldChunkMarker,
+                )).id();
+
+                chunk_manager.loaded_chunks.insert(pos, chunk);
+                chunk_manager.chunk_entities.insert(pos, entity);
+            }
+        }
+    }
+}
 fn trigger_random_seed(keys: Res<ButtonInput<KeyCode>>, mut ev_writer: MessageWriter<GenerateSeedEvent>) {
     if keys.just_pressed(KeyCode::KeyR) {
         let new_seed = std::time::SystemTime::now()
@@ -192,12 +276,13 @@ fn trigger_random_seed(keys: Res<ButtonInput<KeyCode>>, mut ev_writer: MessageWr
 }
 
 fn handle_generate_seed_event(
+    mut commands: Commands,
     mut events: MessageReader<GenerateSeedEvent>,
-    mut world: ResMut<SingleChunkWorld>,
+    mut chunk_manager: ResMut<ChunkManager>,
     mut current_seed_res: ResMut<CurrentSeed>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut modifications: ResMut<MapModifications>,
-    query: Query<&Mesh3d, With<WorldChunkMarker>>
+    //query: Query<&Mesh3d, With<WorldChunkMarker>>
 ) {
     for event in events.read() {
         let new_seed = event.0;
@@ -205,7 +290,7 @@ fn handle_generate_seed_event(
         modifications.0.clear();
             
         println!("Régénération de la carte avec la seed : {}", new_seed);
-
+        /*
         world.chunk = generate_chunk_from_seed(new_seed, world.chunk.chunk_pos);
         
         for mesh3d in &query {
@@ -214,6 +299,13 @@ fn handle_generate_seed_event(
                 *mesh = new_mesh;
             }
         }
+        */ 
+        for &entity in chunk_manager.chunk_entities.values() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        chunk_manager.loaded_chunks.clear();
+        chunk_manager.chunk_entities.clear();
     }
 }
 
@@ -223,7 +315,16 @@ pub struct SaveMapEvent;
 #[derive(Message)]
 pub struct LoadMapEvent;
 
-fn handle_save_load(mut save_events: MessageReader<SaveMapEvent>, mut load_events: MessageReader<LoadMapEvent>, mut world: ResMut<SingleChunkWorld>, mut current_seed: ResMut<CurrentSeed>, mut meshes: ResMut<Assets<Mesh>>, mut modifications: ResMut<MapModifications>, query: Query<&Mesh3d, With<WorldChunkMarker>>) {
+fn handle_save_load(
+    mut commands: Commands,
+    mut save_events: MessageReader<SaveMapEvent>, 
+    mut load_events: MessageReader<LoadMapEvent>, 
+    mut chunk_manager: ResMut<ChunkManager>, 
+    mut current_seed: ResMut<CurrentSeed>, 
+    mut meshes: ResMut<Assets<Mesh>>, 
+    mut modifications: ResMut<MapModifications>, 
+    //query: Query<&Mesh3d, With<WorldChunkMarker>>
+    ) {
     for _ in save_events.read() {
         let mut mods_json = Vec::new();
         for ((x, y, z), block) in &modifications.0 {
@@ -256,7 +357,7 @@ fn handle_save_load(mut save_events: MessageReader<SaveMapEvent>, mut load_event
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
                 if let Some(seed) = v.get("seed").and_then(|s| s.as_u64()) {
                     current_seed.0 = seed as u32;
-                    world.chunk = generate_chunk_from_seed(seed as u32, world.chunk.chunk_pos);
+                    //world.chunk = generate_chunk_from_seed(seed as u32, world.chunk.chunk_pos);
                     modifications.0.clear();
 
                     if let Some(mods) = v.get("modifications").and_then(|m| m.as_array()) {
@@ -275,11 +376,12 @@ fn handle_save_load(mut save_events: MessageReader<SaveMapEvent>, mut load_event
                                 };
                                 let pos = IVec3 { x: x as i32, y: y as i32, z: z as i32 };
                                 modifications.0.insert((pos.x, pos.y, pos.z), block);
-                                let _ = world.chunk.set_local(pos, block);
+                                //let _ = world.chunk.set_local(pos, block);
                             }
                         }
                     }
 
+                /*
                     // Re-mesh
                     for mesh3d in &query {
                         if let Ok(new_mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(&world.chunk) {
@@ -288,6 +390,14 @@ fn handle_save_load(mut save_events: MessageReader<SaveMapEvent>, mut load_event
                             }
                         }
                     }
+                */ 
+                    for &entity in chunk_manager.chunk_entities.values() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                    
+                    chunk_manager.loaded_chunks.clear();
+                    chunk_manager.chunk_entities.clear();
+
                     println!("Map chargée depuis map.json (Seed: {})", current_seed.0);
                 }
             }
@@ -295,7 +405,16 @@ fn handle_save_load(mut save_events: MessageReader<SaveMapEvent>, mut load_event
     }
 }
 
-fn interact_with_blocks(mouse: Res<ButtonInput<MouseButton>>, mut world: ResMut<SingleChunkWorld>, mut meshes: ResMut<Assets<Mesh>>, mut modifications: ResMut<MapModifications>, camera_query: Query<&GlobalTransform, With<PlayerCamera>>, chunk_query: Query<&Mesh3d, With<WorldChunkMarker>>) {
+/*
+fn interact_with_blocks(
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut world: ResMut<SingleChunkWorld>, 
+    mut meshes: ResMut<Assets<Mesh>>, 
+    mut modifications: ResMut<MapModifications>, 
+    camera_query: Query<&GlobalTransform, 
+    With<PlayerCamera>>, 
+    chunk_query: Query<&Mesh3d, 
+    With<WorldChunkMarker>>) {
     if mouse.just_pressed(MouseButton::Right) {
         for camera_transform in &camera_query {
             let origin = camera_transform.translation();
@@ -316,6 +435,49 @@ fn interact_with_blocks(mouse: Res<ButtonInput<MouseButton>>, mut world: ResMut<
                     let new_mesh = crate::rendering::chunk_mesher::mesh_from_chunk(&world.chunk).unwrap();
                     if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
                         *mesh = new_mesh;
+                    }
+                }
+            }
+        }
+    }
+}
+*/ 
+
+fn interact_with_blocks(
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut chunk_manager: ResMut<ChunkManager>, 
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut modifications: ResMut<MapModifications>,
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    mesh3d_query: Query<&Mesh3d>, ) {
+    if mouse.just_pressed(MouseButton::Right) {
+        for camera_transform in &camera_query {
+            let origin = camera_transform.translation();
+            let forward = camera_transform.forward();
+            
+            let is_solid = |p: IVec3| -> bool {
+                chunk_manager.is_solid_world(p)
+            };
+
+            if let Some(result) = crate::world::raycast_world(origin, forward.into(), 10.0, &is_solid) {
+                let voxel_pos = result.position; 
+                let _ = chunk_manager.set_block_world(voxel_pos, BlockType::Air);
+                modifications.0.insert((voxel_pos.x, voxel_pos.y, voxel_pos.z), BlockType::Air);
+                
+                let (chunk_pos, _) = ChunkManager::world_to_chunk_and_local(voxel_pos);
+
+                if let Some(chunk) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+                    if let Ok(new_mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(chunk) {
+                        
+                        if let Some(&entity) = chunk_manager.chunk_entities.get(&chunk_pos) {
+                            
+                            if let Ok(mesh3d) = mesh3d_query.get(entity) {
+                                
+                                if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
+                                    *mesh = new_mesh;
+                                }
+                            }
+                        }
                     }
                 }
             }

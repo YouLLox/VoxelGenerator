@@ -1,13 +1,17 @@
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 use crate::world::{BlockType, Chunk, IVec3, OctreeError, CHUNK_SIZE};
 
-#[derive(Resource)]
-pub struct SingleChunkWorld {
-    pub chunk: Chunk,
+#[derive(Resource,Default)]
+pub struct ChunkManager {
+    pub loaded_chunks: HashMap<IVec3, Chunk>,
+
+    pub chunk_entities: HashMap<IVec3, Entity>,
 }
 
-impl SingleChunkWorld {
+impl ChunkManager {
+    /*
     pub fn chunk_origin(&self) -> IVec3 {
         IVec3::new(
             self.chunk.chunk_pos.x * CHUNK_SIZE as i32,
@@ -37,11 +41,42 @@ impl SingleChunkWorld {
 
         Some(local)
     }
+    */ 
+    pub fn world_to_chunk_and_local(world_pos: IVec3) -> (IVec3, IVec3) {
+        let size = CHUNK_SIZE as i32;
+
+        let chunk_x = world_pos.x.div_euclid(size);
+        let chunk_y = world_pos.y.div_euclid(size);
+        let chunk_z = world_pos.z.div_euclid(size);
+
+        let local_x = world_pos.x.rem_euclid(size);
+        let local_y = world_pos.y.rem_euclid(size);
+        let local_z = world_pos.z.rem_euclid(size);
+
+        let chunk_pos = IVec3::new(chunk_x, chunk_y, chunk_z);
+        let local_pos = IVec3::new(local_x, local_y, local_z);
+
+        (chunk_pos, local_pos)
+    }
 
     pub fn get_block_world(&self, world_pos: IVec3) -> Result<BlockType, OctreeError> {
-        match self.world_to_local(world_pos) {
-            Some(local) => self.chunk.get_local(local),
+        let (chunk_pos, local_pos)=Self::world_to_chunk_and_local(world_pos);
+
+        match self.loaded_chunks.get(&chunk_pos) {
+            Some(chunk) => chunk.get_local(local_pos),
             None => Ok(BlockType::Air),
+        }
+    }
+
+    pub fn set_block_world(&mut self, world_pos: IVec3, 
+        block: BlockType) -> Result<(), OctreeError> {
+        
+        let (chunk_pos, local_pos) = Self::world_to_chunk_and_local(world_pos);
+
+        if let Some(chunk) = self.loaded_chunks.get_mut(&chunk_pos) {
+            chunk.set_local(local_pos, block)
+        } else {
+            Ok(())
         }
     }
 
