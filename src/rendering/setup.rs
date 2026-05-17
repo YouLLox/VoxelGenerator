@@ -181,7 +181,7 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
     let mut new_chunk = Chunk::new(chunk_pos, BlockType::Air).unwrap();
 
     let offset_x = chunk_pos.x * CHUNK_SIZE as i32;
-    let offset_y = chunk_pos.y * CHUNK_SIZE as i32;
+    let offset_z = chunk_pos.z * CHUNK_SIZE as i32;
     
     let map_seed = crate::proc_gen::bruit::MapSeed {
         seed,
@@ -191,7 +191,7 @@ fn generate_chunk_from_seed(seed: u32, chunk_pos: IVec3) -> Chunk {
         octaves: 4,
         persistance: 0.5,
         lacunarity: 2.0,
-        offset:(offset_x,offset_y),
+        offset:(offset_x,offset_z),
     };
 
     let max_height = 16;
