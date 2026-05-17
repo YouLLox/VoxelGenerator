@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use super::chunk_mesher;
 use crate::player::{Player, PlayerCamera, PlayerController, PlayerLook};
 use crate::world::{BlockType, Chunk, IVec3, ChunkManager, CHUNK_SIZE};
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 pub struct SetupPlugin;
 
@@ -12,6 +13,7 @@ impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapModifications>();
         app.init_resource::<ChunkManager>();
+        app.init_resource::<SelectedBlock>();
 
         app.add_message::<GenerateSeedEvent>();
         app.add_message::<SaveMapEvent>();
@@ -24,7 +26,8 @@ impl Plugin for SetupPlugin {
             interact_with_blocks, 
             handle_save_load,
             update_visible_chunks,
-            respawn_player_if_fallen));
+            respawn_player_if_fallen,
+            switch_selected_block));
     }
 }
 
@@ -33,6 +36,25 @@ pub struct WorldChunkMarker;
 
 #[derive(Resource)]
 pub struct CurrentSeed(pub u32);
+
+#[derive(Resource)]
+pub struct SelectedBlock(pub BlockType);
+
+impl Default for SelectedBlock {
+    fn default() -> Self {
+        Self(BlockType::Dirt)
+    }
+}
+
+impl SelectedBlock {
+    pub fn name(&self) -> &str {
+        match self.0 {
+            BlockType::Dirt => "Terre",
+            BlockType::Stone => "Roche",
+            _ => "Inconnu",
+        }
+    }
+}
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>, asset_server: Res<AssetServer>) {
     let chunk_pos = IVec3 { x: 0, y: 0, z: 0 };
@@ -482,39 +504,86 @@ fn interact_with_blocks(
     mut chunk_manager: ResMut<ChunkManager>, 
     mut meshes: ResMut<Assets<Mesh>>,
     mut modifications: ResMut<MapModifications>,
+    selected_block: Res<SelectedBlock>,
     camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    cursor_query: Query<&bevy::window::CursorOptions, With<PrimaryWindow>>,
     mesh3d_query: Query<&Mesh3d>, ) {
-    if mouse.just_pressed(MouseButton::Right) {
-        for camera_transform in &camera_query {
-            let origin = camera_transform.translation();
-            let forward = camera_transform.forward();
-            
-            let is_solid = |p: IVec3| -> bool {
-                chunk_manager.is_solid_world(p)
-            };
 
-            if let Some(result) = crate::world::raycast_world(origin, forward.into(), 10.0, &is_solid) {
+    if let Ok(cursor) = cursor_query.single() {
+        if cursor.grab_mode != CursorGrabMode::Locked {
+            return;
+        }
+    }
+
+    let destroy = mouse.just_pressed(MouseButton::Right);
+    let place = mouse.just_pressed(MouseButton::Left);
+
+    if !destroy && !place {
+        return;
+    }
+
+    for camera_transform in &camera_query {
+        let origin = camera_transform.translation();
+        let forward = camera_transform.forward();
+        
+        let is_solid = |p: IVec3| -> bool {
+            chunk_manager.is_solid_world(p)
+        };
+
+        if let Some(result) = crate::world::raycast_world(origin, forward.into(), 10.0, &is_solid) {
+            if destroy {
                 let voxel_pos = result.position; 
                 let _ = chunk_manager.set_block_world(voxel_pos, BlockType::Air);
                 modifications.0.insert((voxel_pos.x, voxel_pos.y, voxel_pos.z), BlockType::Air);
                 
-                let (chunk_pos, _) = ChunkManager::world_to_chunk_and_local(voxel_pos);
+                remesh_chunk(&chunk_manager, &mut meshes, &mesh3d_query, voxel_pos);
+            } else if place {
+                let place_pos = IVec3::new(
+                    result.position.x + result.normal.x,
+                    result.position.y + result.normal.y,
+                    result.position.z + result.normal.z,
+                );
 
-                if let Some(chunk) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                    if let Ok(new_mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(chunk) {
-                        
-                        if let Some(&entity) = chunk_manager.chunk_entities.get(&chunk_pos) {
-                            
-                            if let Ok(mesh3d) = mesh3d_query.get(entity) {
-                                
-                                if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
-                                    *mesh = new_mesh;
-                                }
-                            }
-                        }
+                let _ = chunk_manager.set_block_world(place_pos, selected_block.0);
+                modifications.0.insert((place_pos.x, place_pos.y, place_pos.z), selected_block.0);
+                
+                remesh_chunk(&chunk_manager, &mut meshes, &mesh3d_query, place_pos);
+            }
+        }
+    }
+}
+
+fn remesh_chunk(
+    chunk_manager: &ChunkManager,
+    meshes: &mut Assets<Mesh>,
+    mesh3d_query: &Query<&Mesh3d>,
+    world_pos: IVec3,
+) {
+    let (chunk_pos, _) = ChunkManager::world_to_chunk_and_local(world_pos);
+
+    if let Some(chunk) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+        if let Ok(new_mesh) = crate::rendering::chunk_mesher::mesh_from_chunk(chunk) {
+            if let Some(&entity) = chunk_manager.chunk_entities.get(&chunk_pos) {
+                if let Ok(mesh3d) = mesh3d_query.get(entity) {
+                    if let Some(mesh) = meshes.get_mut(mesh3d.0.id()) {
+                        *mesh = new_mesh;
                     }
                 }
             }
         }
+    }
+}
+
+fn switch_selected_block(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selected: ResMut<SelectedBlock>,
+) {
+    if keys.just_pressed(KeyCode::KeyB) {
+        selected.0 = match selected.0 {
+            BlockType::Dirt => BlockType::Stone,
+            BlockType::Stone => BlockType::Dirt,
+            _ => BlockType::Dirt,
+        };
+        println!("Bloc sélectionné : {}", selected.name());
     }
 }

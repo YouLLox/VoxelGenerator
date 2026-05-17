@@ -16,7 +16,8 @@ impl Plugin for UiPlugin {
             handle_save_load_buttons,
             toggle_menu_visibility,
             handle_view_distance_buttons,
-            update_view_distance_text));
+            update_view_distance_text,
+            update_selected_block_text));
     }
 }
 #[derive(Resource)]
@@ -53,6 +54,9 @@ pub struct LoadButton;
 
 #[derive(Resource, Default)]
 pub struct TypedSeed(pub String);
+
+#[derive(Component)]
+pub struct SelectedBlockTextMarker;
 
 fn setup_ui(mut commands: Commands) {
     commands
@@ -194,6 +198,40 @@ fn setup_ui(mut commands: Commands) {
                 });
             });
         });
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(20.0),
+            left: Val::Percent(50.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(16.0), Val::Px(8.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+        BorderRadius::all(Val::Px(8.0)),
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("[B] Bloc : Terre"),
+            TextFont { font_size: 20.0, ..default() },
+            TextColor(Color::srgb(1.0, 0.85, 0.3)),
+            SelectedBlockTextMarker,
+        ));
+    });
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(50.0),
+            left: Val::Percent(50.0),
+            width: Val::Px(4.0),
+            height: Val::Px(4.0),
+            ..default()
+        },
+        BackgroundColor(Color::WHITE),
+        BorderRadius::all(Val::Px(2.0)),
+    ));
 }
 
 fn toggle_menu_visibility(
@@ -306,6 +344,17 @@ fn handle_save_load_buttons(
             if load.is_some() {
                 load_writer.write(crate::rendering::setup::LoadMapEvent);
             }
+        }
+    }
+}
+
+fn update_selected_block_text(
+    mut query: Query<&mut Text, With<SelectedBlockTextMarker>>,
+    selected: Res<crate::rendering::setup::SelectedBlock>,
+) {
+    if selected.is_changed() || selected.is_added() {
+        for mut text in &mut query {
+            text.0 = format!("[B] Bloc : {}", selected.name());
         }
     }
 }
