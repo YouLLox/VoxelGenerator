@@ -18,14 +18,14 @@ fn aabb_collides(world: &ChunkManager, pos: Vec3, controller: &PlayerController)
 
     let eps = 0.0001;
 
-    let min_x = (min.x + 0.5).floor() as i32;
-    let max_x = (max.x + 0.5 - eps).floor() as i32;
+    let min_x = min.x.floor() as i32;
+    let max_x = (max.x - eps).floor() as i32;
 
-    let min_y = (min.y + 0.5).floor() as i32;
-    let max_y = (max.y + 0.5 - eps).floor() as i32;
+    let min_y = (min.y ).floor() as i32;
+    let max_y = (max.y- eps).floor() as i32;
 
-    let min_z = (min.z + 0.5).floor() as i32;
-    let max_z = (max.z + 0.5 - eps).floor() as i32;
+    let min_z = (min.z ).floor() as i32;
+    let max_z = (max.z  - eps).floor() as i32;
 
     for x in min_x..=max_x {
         for y in min_y..=max_y {

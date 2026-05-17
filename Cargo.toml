@@ -11,3 +11,9 @@ noise = "0.9"
 image = "0.25"
 rand = "0.10.1"
 chacha20 = "0.10.0"
+
+
+[[bin]]
+edition ="2024"
+name="VoxelGenerator"
+path="src/main.rs"

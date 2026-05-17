@@ -23,7 +23,8 @@ impl Plugin for SetupPlugin {
             handle_generate_seed_event, 
             interact_with_blocks, 
             handle_save_load,
-            update_visible_chunks));
+            update_visible_chunks,
+            respawn_player_if_fallen));
     }
 }
 
@@ -205,6 +206,7 @@ pub fn update_visible_chunks(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    view_distance_res: Res<crate::ui::ViewDistance>,
 ) {
     let Ok(player_transform) = player_query.single() else { return; };
     let player_pos = player_transform.translation;
@@ -214,7 +216,7 @@ pub fn update_visible_chunks(
     let current_chunk_pos = IVec3 { x: current_chunk_x, 
         y: 0, z: current_chunk_z };
 
-    let view_distance = 1; 
+    let view_distance = view_distance_res.0; 
     let mut desired_chunks = HashSet::new();
     
     for dx in -view_distance..=view_distance {
@@ -419,7 +421,24 @@ fn handle_save_load(
         }
     }
 }
+pub fn respawn_player_if_fallen(
+    mut query: Query<(&mut Transform, &mut PlayerController), With<Player>>,
+) {
+    let limit_y = -50.0; 
 
+    for (mut transform, mut controller) in &mut query {
+        if transform.translation.y < limit_y {
+            println!(
+            "Le joueur est tombé dans le vide ! Retour à la surface...");
+
+            //transform.translation = Vec3::new(16.0, 64.0, 16.0);
+            // met au spawn 
+            transform.translation.y = 100.0;
+            //met au dessus du point de chute
+            controller.velocity = Vec3::ZERO;
+        }
+    }
+}
 /*
 fn interact_with_blocks(
     mouse: Res<ButtonInput<MouseButton>>,
