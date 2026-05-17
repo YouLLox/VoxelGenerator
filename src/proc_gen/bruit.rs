@@ -33,7 +33,9 @@ pub fn generate_noise(map_height: usize ,
     ->Vec<Vec<f64>>
 {
     let mut noise_map=vec![vec![0.0;map_width];map_height];
-    let mut octave_offsets=vec![(0i64,0i64);octaves as usize];
+
+    let mut octave_offsets = vec![(0.0, 0.0); octaves as usize];
+    //let mut octave_offsets=vec![(0i64,0i64);octaves as usize];
     
     let mut prng:ChaCha8Rng=ChaCha8Rng::seed_from_u64(seed as u64);
 
@@ -43,13 +45,13 @@ pub fn generate_noise(map_height: usize ,
         let offsetx= (prng.next_u32() as i 64)+offset.0 as i64;
         let offsety= (prng.next_u32() as i64)+offset.1 as i64;
         */ 
-        let base_x = (prng.next_u32() % 200_000) as i64 - 100_000;
-        let base_y = (prng.next_u32() % 200_000) as i64 - 100_000;
+        let base_x = (prng.next_u32() % 200_000) as f64 - 100_000.0;
+        let base_y = (prng.next_u32() % 200_000) as f64 - 100_000.0;
 
-        let offsetx = base_x + (offset.0 as i64);
-        let offsety = base_y + (offset.1 as i64);
+        //let offsetx = base_x + (offset.0 as i64);
+        //let offsety = base_y + (offset.1 as i64);
 
-        octave_offsets[i]=(offsetx,offsety);
+        octave_offsets[i]=(base_x,base_y);
     }           
 
     if scale<=0.00
@@ -71,9 +73,9 @@ pub fn generate_noise(map_height: usize ,
 
     let mut minNoiseHeight=f64::MAX;
 
-    for x in 0..map_height 
+    for z_local in 0..map_height 
     {
-        for y in 0..map_width
+        for x_local in 0..map_width
         {
             let mut amplitude:f64=1.0;
             let mut frequency:f64=1.0;
@@ -81,12 +83,20 @@ pub fn generate_noise(map_height: usize ,
             
             for i in 0..(octaves as usize)
             {
-                let supplex= ((x as f64)-half_height)/scale*frequency + 
+                let global_x = (x_local as f64) + (offset.0 as f64);
+                let global_z = (z_local as f64) + (offset.1 as f64);
+/*
+                let supplex= ((x_local as f64)-half_width)/scale*frequency + 
                     (octave_offsets[i].0 as f64);
-                let suppley= ((y as f64)-half_width)/scale*frequency + 
+                let supplez= ((z_local as f64)-half_height)/scale*frequency + 
                     (octave_offsets[i].1 as f64);
-            
-                let perlinValue=perlinm.get([supplex,suppley]);
+*/ 
+                let supplex = (global_x / scale * frequency) 
+                    + octave_offsets[i].0;
+                let supplez = (global_z / scale * frequency) 
+                    + octave_offsets[i].1;
+                
+                let perlinValue=perlinm.get([supplex,supplez]);
                 noiseHeight+=perlinValue*amplitude;
 
                 amplitude*=persistance;
@@ -101,7 +111,7 @@ pub fn generate_noise(map_height: usize ,
             {
                 minNoiseHeight=noiseHeight;
             }
-            noise_map[x][y]=noiseHeight;
+            noise_map[z_local][x_local]=noiseHeight;
         }
     }       
     /*
