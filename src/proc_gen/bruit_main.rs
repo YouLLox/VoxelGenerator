@@ -44,7 +44,7 @@ pub fn noise_main() {
     let octaves = 4;
     let persistance = 0.5;
     let lacunarity = 2.0;
-
+    let offset=(100,100);
 /* 
     // sécurités quand les valeurs ne seront plus hardcodée
     if octaves<0
@@ -58,7 +58,6 @@ pub fn noise_main() {
         let lacunarity=1
     }
 */
-
     let map_seed=MapSeed{
         seed,
         width,
@@ -67,6 +66,7 @@ pub fn noise_main() {
         octaves,
         persistance,
         lacunarity,
+        offset,
     };
     setup_noise_texture(&map_seed);
 /*

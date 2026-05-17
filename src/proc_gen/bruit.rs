@@ -1,3 +1,7 @@
+use rand::prelude::*;
+use rand::Rng;
+use chacha20::ChaCha8Rng;
+
 pub use noise::{NoiseFn, Perlin, Seedable};
 
 use image::{save_buffer, ColorType};
@@ -11,6 +15,7 @@ pub struct MapSeed
         pub octaves:u32,
         pub persistance:f64,
         pub lacunarity:f64,
+        pub offset:(i32,i32),
 }
 
 fn inv_lerp(a:f64,b:f64,x:f64)->f64
@@ -24,10 +29,28 @@ fn lerp(a:f64,b:f64,x:f64)->f64
 }
 pub fn generate_noise(map_height: usize , 
     map_width: usize , mut scale: f64,seed:u32,octaves:u32,persistance:f64,
-    lacunarity:f64)
+    lacunarity:f64,offset:(i32,i32))
     ->Vec<Vec<f64>>
 {
     let mut noise_map=vec![vec![0.0;map_width];map_height];
+    let mut octave_offsets=vec![(0i64,0i64);octaves as usize];
+    
+    let mut prng:ChaCha8Rng=ChaCha8Rng::seed_from_u64(seed as u64);
+
+    for i in 0..(octaves as usize) 
+    {
+        /*
+        let offsetx= (prng.next_u32() as i 64)+offset.0 as i64;
+        let offsety= (prng.next_u32() as i64)+offset.1 as i64;
+        */ 
+        let base_x = (prng.next_u32() % 200_000) as i64 - 100_000;
+        let base_y = (prng.next_u32() % 200_000) as i64 - 100_000;
+
+        let offsetx = base_x + (offset.0 as i64);
+        let offsety = base_y + (offset.1 as i64);
+
+        octave_offsets[i]=(offsetx,offsety);
+    }           
 
     if scale<=0.00
     {
@@ -38,6 +61,10 @@ pub fn generate_noise(map_height: usize ,
         // de récupérer une valeure de perlin aléatoire en fonction des nombres 
         // donnés donc on va faire un calcul à chaque fois pour pouvoir avoir 
         // une valeure différente pour chaque élément de la noise map
+    
+
+    let half_width=(map_width as f64)/2.0;
+    let half_height=(map_height as f64)/2.0;
     let perlinm = Perlin::new(seed);
 
     let mut maxNoiseHeight=f64::MIN;
@@ -52,10 +79,12 @@ pub fn generate_noise(map_height: usize ,
             let mut frequency:f64=1.0;
             let mut noiseHeight:f64=0.0;
             
-            for i in 0..octaves
+            for i in 0..(octaves as usize)
             {
-                let supplex= (x as f64)/scale*frequency;
-                let suppley= (y as f64)/scale*frequency;
+                let supplex= ((x as f64)-half_height)/scale*frequency + 
+                    (octave_offsets[i].0 as f64);
+                let suppley= ((y as f64)-half_width)/scale*frequency + 
+                    (octave_offsets[i].1 as f64);
             
                 let perlinValue=perlinm.get([supplex,suppley]);
                 noiseHeight+=perlinValue*amplitude;
@@ -100,9 +129,9 @@ pub fn setup_noise_texture( map_seed: &MapSeed)
     let octaves = map_seed.octaves;
     let persistance = map_seed.persistance;
     let lacunarity = map_seed.lacunarity;
-
+    let offset =map_seed.offset;
     let noise_map = generate_noise(height, width, scale,seed,
-        octaves,persistance,lacunarity);
+        octaves,persistance,lacunarity,offset);
 
 
     let mut pixels: Vec<u8> = Vec::with_capacity(width * height * 4);
@@ -134,8 +163,8 @@ pub fn setup_noise_texture( map_seed: &MapSeed)
     //plus tard ça sera peut être plus pertinent 
     //de se servir du buffer directement
     
-    let filepath = (format!("nMap_seed_{}_dim_{}x{}_o{}_p{}_l{}.png",
-        seed,width,height,octaves,persistance,lacunarity)).to_string();
+    let filepath = (format!("nMap_seed_{}_dim_{}x{}_o{}x{}.png",
+        seed,width,height,offset.0,offset.1)).to_string();
     match save_buffer(&filepath, &pixels, width as u32, 
         height as u32, ColorType::Rgba8) 
     {
@@ -161,7 +190,8 @@ pub fn generate_height_map(map_seed: &MapSeed, max_height:usize)
         map_seed.seed,
         map_seed.octaves,
         map_seed.persistance,
-        map_seed.lacunarity
+        map_seed.lacunarity,
+        map_seed.offset,
     );
 
     let mut height_map = vec![vec![0; width]; depth];

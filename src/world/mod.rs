@@ -11,5 +11,5 @@ pub use position::IVec3;
 pub use errors::OctreeError;
 pub use octree::Octree;
 pub use chunk::{Chunk, CHUNK_SIZE};
-pub use world_access::SingleChunkWorld;
+pub use world_access::ChunkManager;
 pub use raycast::{raycast_world, RaycastResult};

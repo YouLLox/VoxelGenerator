@@ -77,11 +77,13 @@ pub fn mesh_from_chunk(chunk: &Chunk) -> Result<Mesh, OctreeError> {
                     for j in 0..size {
                         if let Some(block) = mask[n_idx] {
                             let mut width = 1;
+                            /*
                             while j + width < size && mask[n_idx + width as usize] == Some(block) {
                                 width += 1;
                             }
-
+                            */
                             let mut height = 1;
+                            /*
                             'outer: while k + height < size {
                                 for w in 0..width {
                                     if mask[n_idx + w as usize + (height * size) as usize] != Some(block) {
@@ -90,7 +92,7 @@ pub fn mesh_from_chunk(chunk: &Chunk) -> Result<Mesh, OctreeError> {
                                 }
                                 height += 1;
                             }
-
+*/
                             let mut quad_pos = [0; 3];
                             quad_pos[d_axis] = i;
                             quad_pos[u_axis] = j;

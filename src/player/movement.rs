@@ -2,12 +2,12 @@ use bevy::prelude::*;
 
 use crate::player::collision;
 use crate::player::controller::{Player, PlayerController, PlayerLook};
-use crate::world::SingleChunkWorld;
+use crate::world::ChunkManager;
 
 pub fn player_move_system(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    world: Res<SingleChunkWorld>,
+    world: Res<ChunkManager>,
     mut query: Query<(&mut Transform, &mut PlayerController, &PlayerLook), With<Player>>,
 ) {
     let Some((mut transform, mut controller, look)) = query.iter_mut().next() else {
