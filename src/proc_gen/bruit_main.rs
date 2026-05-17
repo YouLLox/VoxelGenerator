@@ -58,7 +58,6 @@ pub fn noise_main() {
         let lacunarity=1
     }
 */
-
     let map_seed=MapSeed{
         seed,
         width,
